@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LeetArxiv Commit History</title>
+  <style>
+    :root {
+      --bg-color: #0d1117;
+      --text-color: #c9d1d9;
+      --border-color: #30363d;
+      --tile-bg: #161b22;
+      --level-0: #161b22;
+      --level-1: #0e4429;
+      --level-2: #006d32;
+      --level-3: #26a641;
+      --level-4: #39d353;
+      --tile-size: 15px;
+      --tile-gap: 4px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+    }
+
+    .container {
+      padding: 1rem;
+      max-width: 1400px;
+      margin: 0 auto;
+      overflow-x: hidden;
+      overflow: visible;
+    }
+
+    .header {
+      margin-bottom: 2rem;
+      text-align: center;
+    }
+
+    .controls {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      align-items: center;
+    }
+
+    .year-selector {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .year-button {
+      background: none;
+      border: none;
+      color: #8b949e;
+      cursor: pointer;
+      padding: 0.5rem;
+      font-size: 1rem;
+    }
+
+    .year-button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .year-button:hover:not(:disabled) {
+      color: var(--text-color);
+    }
+
+    .year-display {
+      font-size: 1rem;
+      color: var(--text-color);
+      min-width: 80px;
+      text-align: center;
+    }
+
+    .total-commits {
+      font-size: 0.875rem;
+      color: #8b949e;
+      margin-bottom: 1rem;
+    }
+
+    .tabs {
+      display: flex;
+      justify-content: center;
+      gap: 1px;
+      position: sticky;
+      top: 0;
+      background-color: var(--bg-color);
+      padding: 1rem 0;
+      z-index: 10;
+    }
+
+    .tab {
+      padding: 0.5rem 1rem;
+      background-color: #21262d;
+      border: 1px solid var(--border-color);
+      color: var(--text-color);
+      cursor: pointer;
+      font-size: 0.875rem;
+      transition: all 0.2s;
+      position: relative;
+    }
+
+    .tab.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .tab-tooltip {
+      position: absolute;
+      bottom: calc(100% + 5px);
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: #161b22;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      padding: 0.5rem;
+      font-size: 0.75rem;
+      white-space: nowrap;
+      opacity: 0;
+      transition: opacity 0.2s;
+      pointer-events: none;
+      z-index: 1000;
+    }
+
+    .tab.disabled:hover .tab-tooltip {
+      opacity: 1;
+    }
+
+    .tab:first-child {
+      border-top-left-radius: 6px;
+      border-bottom-left-radius: 6px;
+    }
+
+    .tab:last-child {
+      border-top-right-radius: 6px;
+      border-bottom-right-radius: 6px;
+    }
+
+    .tab.active {
+      background-color: #238636;
+      color: white;
+    }
+
+    .grid-container {
+      display: grid;
+      gap: 2rem;
+      padding: 0 1rem;
+      overflow: visible;
+    }
+
+    .grid-container[data-view="year"] {
+      grid-template-columns: repeat(6, 1fr);
+    }
+
+    .grid-container[data-view="month"],
+    .grid-container[data-view="week"] {
+      grid-template-columns: repeat(4, 1fr);
+    }
+
+    .partition {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .partition-header {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .partition-title {
+      font-size: 0.875rem;
+      color: #8b949e;
+      font-weight: 600;
+      justify-self: start;
+    }
+
+    .commit-count {
+      font-size: 0.75rem;
+      color: #8b949e;
+      justify-self: end;
+    }
+
+    .commit-grid {
+      display: grid;
+      grid-template-columns: repeat(7, var(--tile-size));
+      gap: var(--tile-gap);
+    }
+
+    .tile {
+      width: var(--tile-size);
+      height: var(--tile-size);
+      border-radius: 2px;
+      background-color: var(--level-0);
+      position: relative;
+      transition: transform 0.1s ease;
+    }
+
+    .tile:hover {
+      transform: scale(1.1);
+      z-index: 1000;
+    }
+
+    .tile[data-level="1"] {
+      background-color: var(--level-1);
+    }
+
+    .tile[data-level="2"] {
+      background-color: var(--level-2);
+    }
+
+    .tile[data-level="3"] {
+      background-color: var(--level-3);
+    }
+
+    .tile[data-level="4"] {
+      background-color: var(--level-4);
+    }
+
+    .tooltip {
+      position: absolute;
+      background-color: #161b22;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 0;
+      font-size: 0.75rem;
+      white-space: normal;
+      z-index: 100;
+      bottom: 150%;
+      left: 50%;
+      transform: translateX(-50%);
+      opacity: 0;
+      transition: opacity 0.2s, visibility 0s linear 0.2s;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+      min-width: 200px;
+      max-width: 300px;
+      pointer-events: none;
+      visibility: hidden;
+      transform-origin: center bottom;
+    }
+
+    .tooltip::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: -10px;
+      height: 10px;
+    }
+
+    .tooltip-left-edge::after {
+      left: 14px;
+      right: auto;
+    }
+
+    .tooltip-right-edge::after {
+      right: 14px;
+      left: auto;
+    }
+
+    .tile:hover .tooltip,
+    .tooltip:hover {
+      opacity: 1;
+      visibility: visible;
+      transition-delay: 0s;
+      pointer-events: auto;
+    }
+
+    .tooltip-header {
+      position: sticky;
+      top: 0;
+      background-color: #161b22;
+      z-index: 2;
+      border-top-left-radius: 6px;
+      border-top-right-radius: 6px;
+      padding: 0.75rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .tooltip-date {
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+
+    .tooltip-count {
+      color: #8b949e;
+      font-size: 0.75rem;
+    }
+
+    .files-container {
+      max-height: 150px;
+      overflow-y: auto;
+      padding: 0.5rem 0;
+    }
+
+    .files-container::-webkit-scrollbar {
+      width: 5px;
+    }
+
+    .files-container::-webkit-scrollbar-track {
+      background: #21262d;
+    }
+
+    .files-container::-webkit-scrollbar-thumb {
+      background: #30363d;
+      border-radius: 3px;
+    }
+
+    .file-time {
+      color: #8b949e;
+      font-size: 0.75rem;
+      margin-left: auto;
+    }
+
+    .file-name {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .file-item {
+      padding: 0.5rem 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      min-width: 0;
+      /* Ensures flex items can shrink below content size */
+    }
+
+    .file-item:hover {
+      background-color: rgba(110, 118, 129, 0.1);
+    }
+
+
+
+    .empty-state {
+      text-align: center;
+      padding: 3rem 1rem;
+      grid-column: 1 / -1;
+      background: rgba(110, 118, 129, 0.1);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      margin: 1rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .empty-state-icon {
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
+      opacity: 0.5;
+    }
+
+    .empty-state-text {
+      color: #8b949e;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 2rem;
+      color: #8b949e;
+      grid-column: 1 / -1;
+    }
+
+    .error {
+      text-align: center;
+      padding: 2rem;
+      color: #f85149;
+      grid-column: 1 / -1;
+    }
+
+    @media (max-width: 1200px) and (min-width: 769px) {
+
+      .grid-container[data-view="year"],
+      .grid-container[data-view="month"],
+      .grid-container[data-view="week"] {
+        grid-template-columns: repeat(3, 1fr);
+      }
+
+      :root {
+        --tile-size: 14px;
+      }
+    }
+
+    @media (max-width: 768px) {
+
+      .grid-container[data-view="year"],
+      .grid-container[data-view="month"],
+      .grid-container[data-view="week"] {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+      }
+
+      .container {
+        padding: 0.5rem;
+      }
+
+      :root {
+        --tile-size: 13px;
+        --tile-gap: 3px;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        padding: 0.5rem 1rem;
+      }
+
+      .grid-container {
+        padding: 0 0.5rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .grid-container {
+        padding: 0 0.5rem;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="controls">
+        <div class="year-selector">
+          <button class="year-button" id="prevYear">◄</button>
+          <div class="year-display" id="yearDisplay">2024</div>
+          <button class="year-button" id="nextYear" disabled>►</button>
+        </div>
+        <div class="total-commits"></div>
+        <div class="tabs">
+          <button class="tab active" data-period="year">This year</button>
+          <button class="tab" data-period="month">This month</button>
+          <button class="tab" data-period="week">This week</button>
+        </div>
+      </div>
+    </div>
+    <div id="grid-container" class="grid-container" data-view="year"></div>
+  </div>
+
+  <script>
+
+    // ====================== CONFIGURATION ======================
+    const API_URL = 'http://localhost:3000';
+
+    let currentYear = new Date().getFullYear();
+
+    // ====================== DATA FETCHING ======================
+
+    /**
+     * Fetches commit history for a specific user
+     */
+    async function fetchUserCommits(username) {
+      try {
+        const response = await fetch(`${API_URL}/RetrieveCommits?username=${username}`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch commits');
+        }
+        const userData = await response.json();
+        return userData;
+      } catch (error) {
+        console.error('Error fetching commits:', error);
+        return null;
+      }
+    }
+
+    // ====================== DATA PROCESSING ======================
+    function processCommitData(commitHistory) {
+      const commitCounts = new Map();
+
+      commitHistory.forEach(commit => {
+        const dateStr = new Date(commit.Date).toISOString().split('T')[0];
+        commitCounts.set(dateStr, (commitCounts.get(dateStr) || 0) + 1);
+      });
+
+      return commitCounts;
+    }
+
+    // Helper function to group files and count occurrences
+    function groupFileChanges(commits) {
+      const fileChanges = new Map();
+      commits.forEach(commit => {
+        const count = fileChanges.get(commit.Filename) || 0;
+        fileChanges.set(commit.Filename, count + 1);
+      });
+      return fileChanges;
+    }
+
+
+    function getCommitLevel(count) {
+      if (count === 0) return 0;
+      if (count <= 2) return 1;
+      if (count <= 5) return 2;
+      if (count <= 8) return 3;
+      return 4;
+    }
+
+    // ====================== UI COMPONENTS ======================
+    function formatTooltipDate(date) {
+      const options = {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      };
+      return date.toLocaleDateString(undefined, options);
+    }
+
+    function createTooltip(date, commits) {
+      const tooltip = document.createElement('div');
+      tooltip.className = 'tooltip';
+
+      // Header section
+      const header = document.createElement('div');
+      header.className = 'tooltip-header';
+
+      const dateEl = document.createElement('div');
+      dateEl.className = 'tooltip-date';
+      dateEl.textContent = formatTooltipDate(date);
+
+      const summary = document.createElement('div');
+      summary.className = 'tooltip-summary';
+      summary.textContent = `${commits.length} contributions on this day`;
+
+      header.appendChild(dateEl);
+      header.appendChild(summary);
+
+      // Files section
+      const filesContainer = document.createElement('div');
+      filesContainer.className = 'tooltip-files';
+
+      // Group and sort file changes
+      const fileChanges = groupFileChanges(commits);
+      const sortedFiles = Array.from(fileChanges.entries())
+        .sort((a, b) => b[1] - a[1]); // Sort by number of changes
+
+      sortedFiles.forEach(([filename, count]) => {
+        const fileItem = document.createElement('div');
+        fileItem.className = 'file-item';
+
+        const icon = document.createElement('span');
+        icon.className = 'file-icon';
+        icon.textContent = '📄';
+
+        const name = document.createElement('span');
+        name.textContent = filename;
+
+        const countBadge = document.createElement('span');
+        countBadge.className = 'file-count';
+        countBadge.textContent = count;
+
+        fileItem.appendChild(icon);
+        fileItem.appendChild(name);
+        fileItem.appendChild(countBadge);
+        filesContainer.appendChild(fileItem);
+      });
+
+      tooltip.appendChild(header);
+      tooltip.appendChild(filesContainer);
+
+      return tooltip;
+    }
+
+    function createTile(commitData) {
+      const tile = document.createElement('div');
+      tile.className = 'tile';
+      tile.setAttribute('data-level', getCommitLevel(commitData.count));
+
+      const tooltip = document.createElement('div');
+      tooltip.className = 'tooltip';
+
+      // Create array of file changes with timestamps
+      const fileChanges = commitData.files.map(file => ({
+        filename: file.Filename || file,
+        time: new Date(file.Date || commitData.date)
+      }));
+
+      // Sort all changes by time, most recent first
+      fileChanges.sort((a, b) => b.time - a.time);
+
+      const dateStr = formatTooltipDate(commitData.date);
+      const commitText = commitData.count === 1 ? 'commit' : 'commits';
+
+      // Create chronological list of changes
+      const filesList = fileChanges
+        .map(({ filename, time }) => {
+          const timeStr = time.toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true,
+            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+          });
+
+          return `
+                <div class="file-item">
+                    <span class="file-icon">📄</span>
+                    <span class="file-name" title="${filename}">${filename}</span>
+                    <span class="file-time">${timeStr}</span>
+                </div>
+            `;
+        })
+        .join('');
+
+      tooltip.innerHTML = `
+        <div class="tooltip-header">
+            <div class="tooltip-date">${dateStr}</div>
+            <div class="tooltip-count">${commitData.count} ${commitText}</div>
+        </div>
+        <div class="files-container">
+            ${filesList}
+        </div>
+    `;
+
+      // Add event listener to adjust tooltip position
+      tile.addEventListener('mouseenter', () => {
+        // Get tile and tooltip positions
+        const tileRect = tile.getBoundingClientRect();
+        const tooltipRect = tooltip.getBoundingClientRect();
+        const viewportWidth = window.innerWidth;
+
+        // Reset any previous positioning
+        tooltip.style.removeProperty('left');
+        tooltip.style.removeProperty('right');
+        tooltip.style.removeProperty('transform');
+
+        // Check if tooltip would overflow right edge
+        if (tileRect.left + (tooltipRect.width / 2) > viewportWidth - 10) {
+          tooltip.style.left = 'auto';
+          tooltip.style.right = '-10px';
+          tooltip.style.transform = 'translateX(0)';
+          tooltip.classList.add('tooltip-right-edge');
+        }
+        // Check if tooltip would overflow left edge
+        else if (tileRect.left < tooltipRect.width / 2) {
+          tooltip.style.left = '-10px';
+          tooltip.style.transform = 'translateX(0)';
+          tooltip.classList.add('tooltip-left-edge');
+        }
+      });
+
+      tile.appendChild(tooltip);
+      return tile;
+    }
+
+    function createPartition(title, commits) {
+      const partition = document.createElement('div');
+      partition.className = 'partition';
+
+      const header = document.createElement('div');
+      header.className = 'partition-header';
+
+      const titleEl = document.createElement('div');
+      titleEl.className = 'partition-title';
+      titleEl.textContent = title;
+
+      const countEl = document.createElement('div');
+      countEl.className = 'commit-count';
+      const totalCommits = commits.reduce((sum, commit) => sum + commit.count, 0);
+      countEl.textContent = `${totalCommits} commits`;
+
+      header.appendChild(titleEl);
+      header.appendChild(countEl);
+
+      const grid = document.createElement('div');
+      grid.className = 'commit-grid';
+
+      commits.forEach(commit => {
+        grid.appendChild(createTile(commit));
+      });
+
+      partition.appendChild(header);
+      partition.appendChild(grid);
+      return partition;
+    }
+
+    function getDailyCommitCounts(commits) {
+      const dailyCounts = new Map();
+
+      commits.forEach(commit => {
+        const dateKey = commit.Date.toISOString().split('T')[0];
+        dailyCounts.set(dateKey, (dailyCounts.get(dateKey) || 0) + 1);
+      });
+
+      return dailyCounts;
+    }
+
+    function filterCommitsByDate(commits, period, year) {
+      const now = new Date();
+      return commits.filter(commit => {
+        const commitDate = new Date(commit.Date);
+
+        // Don't show future dates
+        if (commitDate > now) return false;
+
+        if (period === 'year') {
+          return commitDate.getFullYear() === year;
+        } else if (period === 'month') {
+          return commitDate.getFullYear() === now.getFullYear() &&
+            commitDate.getMonth() === now.getMonth();
+        } else {
+          const weekStart = new Date(now);
+          weekStart.setDate(now.getDate() - now.getDay());
+          return commitDate >= weekStart;
+        }
+      });
+    }
+
+    function updateTotalCommits(commits, period) {
+      const totalEl = document.querySelector('.total-commits');
+      const total = commits.length;
+      const selectedYear = document.getElementById('yearDisplay').textContent;
+
+      let periodText;
+      if (period === 'year') {
+        periodText = `in ${selectedYear}`;
+      } else if (period === 'month') {
+        periodText = 'this month';
+      } else {
+        periodText = 'this week';
+      }
+
+      totalEl.textContent = `${total.toLocaleString()} commits ${periodText}`;
+    }
+
+    // ====================== DISPLAY MANAGEMENT ======================
+
+    async function updateDisplay(period) {
+      const container = document.getElementById('grid-container');
+      container.setAttribute('data-view', period);
+      container.innerHTML = '';
+
+      try {
+        // Show loading state
+        container.innerHTML = '<div class="loading">Loading commits...</div>';
+
+        // Fetch data if we haven't already
+        if (!window.userData) {
+          const data = await fetchUserCommits('murage');
+          if (!data) {
+            container.innerHTML = '<div class="error">Failed to load commit data</div>';
+            return;
+          }
+          window.userData = data;
+        }
+
+        const now = new Date();
+        const selectedYear = parseInt(document.getElementById('yearDisplay').textContent);
+
+        // Filter commits based on selected year and period
+        const filteredCommits = window.userData.CommitHistory.filter(commit => {
+          const commitDate = new Date(commit.Date);
+
+          // Don't show future dates
+          if (commitDate > now) return false;
+
+          if (period === 'year') {
+            return commitDate.getFullYear() === selectedYear;
+          } else if (period === 'month') {
+            return commitDate.getFullYear() === now.getFullYear() &&
+              commitDate.getMonth() === now.getMonth();
+          } else {
+            const weekStart = new Date(now);
+            weekStart.setDate(now.getDate() - now.getDay());
+            return commitDate >= weekStart;
+          }
+        });
+
+        if (filteredCommits.length === 0) {
+          const selectedYear = document.getElementById('yearDisplay').textContent;
+          let emptyMessage;
+
+          switch (period) {
+            case 'year':
+              emptyMessage = `No commits in ${selectedYear}`;
+              break;
+            case 'month':
+              const currentMonth = new Date().toLocaleString('default', { month: 'long' });
+              emptyMessage = `No commits this month`;
+              break;
+            case 'week':
+              emptyMessage = 'No commits this week';
+              break;
+            default:
+              emptyMessage = 'No commits found';
+          }
+
+          container.innerHTML = `
+        <div class="empty-state">
+            <div class="empty-state-icon">📅</div>
+            <div class="empty-state-text">${emptyMessage}</div>
+        </div>
+    `;
+          updateTotalCommits([], period);
+          return;
+        }
+
+        const commitCounts = processCommitData(filteredCommits);
+
+        // Group commits based on period
+        const groups = new Map();
+
+        filteredCommits.forEach(commit => {
+          const date = new Date(commit.Date);
+          let key;
+
+          if (period === 'year') {
+            key = date.toLocaleString('default', { month: 'short' });
+          } else if (period === 'month') {
+            key = `Week ${Math.ceil(date.getDate() / 7)}`;
+          } else {
+            key = date.toLocaleString('default', { weekday: 'short' });
+          }
+
+          if (!groups.has(key)) {
+            groups.set(key, new Set());
+          }
+          groups.get(key).add(date.toISOString().split('T')[0]);
+        });
+
+        // Update total commits display
+        updateTotalCommits(filteredCommits, period);
+
+        // Clear loading state
+        container.innerHTML = '';
+
+        // Create partitions
+        groups.forEach((dates, title) => {
+          const commitsByDate = Array.from(dates).map(dateStr => ({
+            date: new Date(dateStr),
+            count: commitCounts.get(dateStr) || 0,
+            files: filteredCommits
+              .filter(commit => {
+                // Compare just the dates but preserve the original commit time
+                const commitDate = new Date(commit.Date).toISOString().split('T')[0];
+                const targetDate = new Date(dateStr).toISOString().split('T')[0];
+                return commitDate === targetDate;
+              })
+              .map(commit => ({
+                Filename: commit.Filename,
+                Date: commit.Date  // Preserve the original date with time
+              }))
+          }));
+          container.appendChild(createPartition(title, commitsByDate));
+        });
+
+      } catch (error) {
+        console.error('Error updating display:', error);
+        container.innerHTML = '<div class="error">Error displaying commits</div>';
+      }
+    }
+
+    function updateTabsVisibility() {
+      const tabs = document.querySelectorAll('.tab');
+      const currentYear = new Date().getFullYear();
+      const selectedYear = parseInt(document.getElementById('yearDisplay').textContent);
+
+      tabs.forEach(tab => {
+        const tabPeriod = tab.dataset.period;
+
+        // Update tab text based on context
+        if (tabPeriod === 'year') {
+          // Show "This Year" for current year, actual year for past years
+          tab.textContent = selectedYear === currentYear ? 'This Year' : `${selectedYear}`;
+        } else if (selectedYear < currentYear) {
+          tab.classList.add('disabled');
+
+          // Add tooltip explaining why it's disabled
+          const tooltip = document.createElement('div');
+          tooltip.className = 'tab-tooltip';
+          tooltip.textContent = `Switch to ${currentYear} to view current ${tabPeriod}`;
+          tab.appendChild(tooltip);
+        } else {
+          if (tabPeriod === 'month') {
+            tab.textContent = 'This Month';
+          } else if (tabPeriod === 'week') {
+            tab.textContent = 'This Week';
+          }
+          tab.classList.remove('disabled');
+
+          // Remove tooltip if exists
+          const tooltip = tab.querySelector('.tab-tooltip');
+          if (tooltip) tooltip.remove();
+        }
+      });
+    }
+
+    function showYearSwitchPrompt() {
+      const currentYear = new Date().getFullYear();
+      const prompt = document.createElement('div');
+      prompt.className = 'switch-year-prompt';
+      prompt.innerHTML = `
+            <span>Switch to ${currentYear} to view current activity?</span>
+            <button class="switch-year-button">Switch to ${currentYear}</button>
+        `;
+
+      const container = document.querySelector('.controls');
+      const existingPrompt = container.querySelector('.switch-year-prompt');
+      if (existingPrompt) existingPrompt.remove();
+
+      container.insertBefore(prompt, container.querySelector('.tabs'));
+      setTimeout(() => prompt.classList.add('visible'), 50);
+
+      prompt.querySelector('button').addEventListener('click', () => {
+        currentYear = new Date().getFullYear();
+        document.getElementById('yearDisplay').textContent = currentYear;
+        document.getElementById('nextYear').disabled = true;
+        updateDisplay('year');
+        prompt.remove();
+      });
+    }
+
+    // ====================== EVENT HANDLERS ======================
+
+    function setupYearNavigation() {
+      document.getElementById('prevYear').addEventListener('click', () => {
+        currentYear--;
+        document.getElementById('yearDisplay').textContent = currentYear;
+        document.getElementById('nextYear').disabled = currentYear >= new Date().getFullYear();
+        updateTabsVisibility();
+        updateDisplay('year');
+      });
+
+      document.getElementById('nextYear').addEventListener('click', () => {
+        currentYear++;
+        document.getElementById('yearDisplay').textContent = currentYear;
+        document.getElementById('nextYear').disabled = currentYear >= new Date().getFullYear();
+        updateTabsVisibility();
+        updateDisplay('year');
+      });
+    }
+
+    function setupTabHandlers() {
+      document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', (e) => {
+          if (e.target.classList.contains('disabled')) return;
+
+          const selectedYear = parseInt(document.getElementById('yearDisplay').textContent);
+          const currentYear = new Date().getFullYear();
+
+          if (selectedYear < currentYear && ['month', 'week'].includes(e.target.dataset.period)) {
+            showYearSwitchPrompt();
+            return;
+          }
+
+          document.querySelector('.tab.active').classList.remove('active');
+          e.target.classList.add('active');
+          updateDisplay(e.target.dataset.period);
+        });
+      });
+    }
+
+    function initializeEventListeners() {
+      setupYearNavigation();
+      setupTabHandlers();
+    }
+
+    // ====================== INITIALIZATION ======================
+    /**
+     * Initialize the application
+     */
+    function initialize() {
+      updateTabsVisibility();
+      initializeEventListeners();
+      updateDisplay('year');
+    }
+
+    // Start the application
+    initialize();
+  </script>
+</body>
+
+</html>
