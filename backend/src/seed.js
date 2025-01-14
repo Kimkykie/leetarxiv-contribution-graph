@@ -90,24 +90,24 @@ const seedDatabase = async () => {
             {
                 Username: "murage",
                 CommitHistory: [
-                    ...generateYearCommits(2024, 'high'),    // Very active current year
-                    ...generateYearCommits(2023, 'normal'),  // Normal activity last year
+                    ...generateYearCommits(2025, 'high'),    // Very active current year
+                    ...generateYearCommits(2024, 'normal'),  // Normal activity last year
                     // 2022 has no data (intentionally empty)
-                    ...generateYearCommits(2021, 'low')      // Low activity in 2021
+                    ...generateYearCommits(2022, 'low')      // Low activity in 2021
                 ]
             },
             {
                 Username: "john_doe",
                 CommitHistory: [
-                    ...generateYearCommits(2024, 'normal'),  // Normal activity current year
-                    ...generateYearCommits(2023, 'low')      // Low activity last year
+                    ...generateYearCommits(2025, 'normal'),  // Normal activity current year
+                    ...generateYearCommits(2024, 'low')      // Low activity last year
                 ]
             },
             {
                 Username: "jane_smith",
                 CommitHistory: [
-                    ...generateYearCommits(2024, 'low'),     // Low activity current year
-                    ...generateYearCommits(2023, 'high')     // Very active last year
+                    ...generateYearCommits(2025, 'low'),     // Low activity current year
+                    ...generateYearCommits(2021, 'high')     // Very active last year
                 ]
             }
         ];
